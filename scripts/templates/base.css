@@ -103,6 +103,22 @@ padding: 10px;
     max-width: 90%;
 }
 
+#mapid {
+    height: 400px;
+    width: 800px;
+    max-width: 80%;
+}
+.sticky {
+    position: sticky;
+    top: 0;
+}
+.circle {
+    background-color: #3388ff; /* For browsers that do not support gradients */
+    background-image: radial-gradient(#ccdaed, #3388ff, #3388ff);
+    border-radius: 50%; /* make the div a circular shape */
+    cursor: ne-resize !important;
+}
+
 .map-container {
     width:512px;
     height:256px;
@@ -122,6 +138,57 @@ li {
 
 .crs_error {
     color: #A00000;
+}
+
+label {
+    white-space: nowrap;
+}
+
+.loader-text {
+    color: darkred;
+}
+.tab {
+
+}
+.tab-line:nth-of-type(2n) .tab-cell {
+    background: #EEEEEE;
+}
+.tab-line {
+    text-wrap: nowrap;
+    display: table-row;
+}
+.tab-header .tab-cell {
+    color: whitesmoke;
+    background-color: darkslategray;
+}
+.tab-cell {
+    border-width: 1px;
+    border-style: solid;
+    border-color: white;
+    display: inline-block;
+    padding-left: 0.25em;
+    padding-right: 0.25em;
+    vertical-align: inherit;
+    unicode-bidi: isolate;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.tab-code {
+    width: 7em;
+}
+.tab-name {
+    width: 20em
+}
+.tab-area {
+    width: 15em
+}
+.tab-type {
+    width: 3em
+}
+.tab-deprecated {
+    width: 2em
 }
 
 /*https://stackoverflow.com/questions/43267742/make-flex-direction-switch-to-column-if-theres-not-enough-space-in-a-row*/
