@@ -40,8 +40,77 @@ function prepare_filter() {
     return res;
 }
 
+function intersects(box1, box2) {
+    if (box1.n < box2.s || box2.n < box1.s) {
+        return false;
+    }
+
+    if (box1.w <= box1.e && box2.w <= box2.e) {
+        // none crosses the antimeridian
+        return Math.max(box1.w, box2.w) <= Math.min(box1.e, box2.e);
+    } else if (box1.w > box1.e && box2.w > box2.e) {
+        // both cross the antimeridian
+        return true;
+    } else {
+        // one crosses the antimeridian
+        return box2.w <= box1.e || box1.w <= box2.e;
+    }
+}
+
+function normalizeLong(lng) {
+    while(lng < -180) {
+        lng += 360;
+    }
+    while (lng > 180) {
+        lng -= 360;
+    }
+    return lng;
+}
+
+function make_map_box(map) {
+    let markers = []
+    map.eachLayer(function (layer) {
+        if (layer instanceof L.Marker){
+            markers.push(layer);
+        }
+    });
+    if (!markers.length) return null;
+    const latlng = markers[0].getLatLng();
+
+    let w = latlng.lng;
+    let e = w;
+    let n = latlng.lat;
+    let s = n;
+    if (markers.length == 2) {
+        const latlng2 = markers[1].getLatLng();
+        w = Math.min(w, latlng2.lng);
+        e = Math.max(e, latlng2.lng);
+        n = Math.max(n, latlng2.lat);
+        s = Math.min(s, latlng2.lat);
+    }
+    if (e-w >= 360) {
+        w = -180;
+        e = 180;
+    } else {
+        w = normalizeLong(w);
+        e = normalizeLong(e);
+    }
+    const box = {w:w, s:s, e:e, n:n};
+    return box;
+}
+
+function intersects_with_map_box(map_box, area_of_use) {
+    if (map_box) {
+        const box2 = {w:area_of_use[0], s:area_of_use[1], e:area_of_use[2], n:area_of_use[3]};
+        const use = intersects(map_box, box2);
+        return use;
+    }
+    return true;
+}
+
 function run_filter() {
     const filters = prepare_filter();
+    const map_box = make_map_box(_map);
     let data = _data.filter(crs => {
         if (!filters.types[crs.type]) {
             return false;
@@ -50,6 +119,8 @@ function run_filter() {
         } else if (!filters.allowDeprecated && crs.deprecated) {
             return false;
         } else if (filters.ignoreWorld && crs.area_of_use[0] == -180 && crs.area_of_use[2] == 180) {
+            return false;
+        } else if (!intersects_with_map_box(map_box, crs.area_of_use)) {
             return false;
         }
         return true;
@@ -186,11 +257,56 @@ function make_map() {
         set_latlng(map, e.latlng)
     });
 
+    document.querySelector('#delete').addEventListener('click', function () {
+        let doit = false;
+        map.eachLayer(function (layer) {
+            if (layer instanceof L.Marker || layer instanceof L.Polygon){
+                layer.removeFrom(map);
+                doit = true;
+            }
+        });
+
+        if (doit) {
+            document.querySelector('#location').innerHTML = '';
+            slow_task(run_filter);
+        }
+    });
+
     return map;
 }
-function init_explorer(home_dir) {
-    prepare_callbacks();
+
+function toggleInfo() {
+    document.querySelector("#search_info").classList.toggle('hidden');
+}
+
+function prepare_doc() {
     _map = make_map();
+    prepare_callbacks();
+
+    function setSearchText(str) {
+        form.elements.value.value = str;
+        str = str.trim();
+        ///// filters.searchText = str;
+
+        if (str) {
+            document.querySelector('#activeSearch').classList.remove('hidden');
+            document.querySelector('#activeSearchTxt').innerText = str;
+        } else {
+            document.querySelector('#activeSearch').classList.add('hidden');
+        }
+    }
+
+    let form = document.querySelector("form");
+    form.addEventListener("submit", function(event) {
+        event.preventDefault();
+        let str = form.elements.value.value;
+        setSearchText(str)
+        slow_task(run_filter);
+    });
+}
+
+function init_explorer(home_dir) {
+    prepare_doc();
     fetch(home_dir + '/crslist.json', {
         method: "GET",
     })
