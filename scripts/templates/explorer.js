@@ -28,6 +28,8 @@ function prepare_filter() {
         allowDeprecated: true,
         ignoreWorld: false,
         authorities:{},
+        map_box: null,
+        str: '',
     };
     Array.from(document.querySelectorAll(".crstype")).forEach(t => {
         res.types[t.id] = t.checked;
@@ -37,6 +39,9 @@ function prepare_filter() {
     })
     res.allowDeprecated = document.getElementById('allowDeprecated').checked
     res.ignoreWorld = document.getElementById('ignoreWorld').checked
+    res.map_box = make_map_box(_map);
+    res.str = document.querySelector('#activeSearchTxt').innerText;
+
     return res;
 }
 
@@ -108,9 +113,40 @@ function intersects_with_map_box(map_box, area_of_use) {
     return true;
 }
 
+function valid_search_str(crs, str) {
+    if (!str)
+        return true;
+
+    const crs_name = crs.name.toLowerCase();
+    str = str.toLowerCase();
+    const ors = str.match(/([^\|]+)/g);
+
+    for (let i = 0; i < ors.length; i++) {
+        const or = ors[i];
+        const number = or.match(/^\s*([1-9]\d*)\s*$/);
+        if (number && number.length == 2) {
+            if (crs.code === number[1])
+                return true;
+        }
+        const pieces = or.match(/(-?".*?"|[^"\s]+)(?=\s*|\s*$)/g);
+        const valid_pieces = pieces.map(x => {
+            let negate = false;
+            if (x.charAt(0) == '-') {
+                x = x.substring(1);
+                negate = true;
+            }
+            x = x.replaceAll('"', '');
+            return crs_name.includes(x) != negate;
+        })
+        const checker = valid_pieces.every(Boolean);
+        if (checker)
+            return true;
+    }
+    return false;
+}
+
 function run_filter() {
     const filters = prepare_filter();
-    const map_box = make_map_box(_map);
     let data = _data.filter(crs => {
         if (!filters.types[crs.type]) {
             return false;
@@ -120,7 +156,9 @@ function run_filter() {
             return false;
         } else if (filters.ignoreWorld && crs.area_of_use[0] == -180 && crs.area_of_use[2] == 180) {
             return false;
-        } else if (!intersects_with_map_box(map_box, crs.area_of_use)) {
+        } else if (!intersects_with_map_box(filters.map_box, crs.area_of_use)) {
+            return false;
+        } else if (!valid_search_str(crs, filters.str)) {
             return false;
         }
         return true;
@@ -288,9 +326,10 @@ function prepare_doc() {
         str = str.trim();
         ///// filters.searchText = str;
 
+        document.querySelector('#activeSearchTxt').innerText = str;
         if (str) {
             document.querySelector('#activeSearch').classList.remove('hidden');
-            document.querySelector('#activeSearchTxt').innerText = str;
+
         } else {
             document.querySelector('#activeSearch').classList.add('hidden');
         }
