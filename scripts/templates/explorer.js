@@ -1,5 +1,6 @@
 let _data = null;
 let _map = null;
+let _mapName = '';
 
 function div(classes, appendTo, text, title, link) {
     let d = document.createElement('div');
@@ -22,7 +23,7 @@ function div(classes, appendTo, text, title, link) {
     return d;
 }
 
-function prepare_filter() {
+function prepareFilterFromDoc() {
     let res = {
         types:{},
         allowDeprecated: true,
@@ -39,7 +40,7 @@ function prepare_filter() {
     })
     res.allowDeprecated = document.getElementById('allowDeprecated').checked
     res.ignoreWorld = document.getElementById('ignoreWorld').checked
-    res.map_box = make_map_box(_map);
+    res.map_box = makeMapBox(_map);
     res.str = document.querySelector('#activeSearchTxt').innerText;
 
     return res;
@@ -72,7 +73,7 @@ function normalizeLong(lng) {
     return lng;
 }
 
-function make_map_box(map) {
+function makeMapBox(map) {
     let markers = []
     map.eachLayer(function (layer) {
         if (layer instanceof L.Marker){
@@ -104,7 +105,7 @@ function make_map_box(map) {
     return box;
 }
 
-function intersects_with_map_box(map_box, area_of_use) {
+function intersectsWithMapBox(map_box, area_of_use) {
     if (map_box) {
         const box2 = {w:area_of_use[0], s:area_of_use[1], e:area_of_use[2], n:area_of_use[3]};
         const use = intersects(map_box, box2);
@@ -113,7 +114,7 @@ function intersects_with_map_box(map_box, area_of_use) {
     return true;
 }
 
-function valid_search_str(crs, str) {
+function validSearchStr(crs, str) {
     if (!str)
         return true;
 
@@ -145,8 +146,9 @@ function valid_search_str(crs, str) {
     return false;
 }
 
-function run_filter() {
-    const filters = prepare_filter();
+function runFilterCb() {
+    if (!_data) return;
+    const filters = prepareFilterFromDoc();
     let data = _data.filter(crs => {
         if (!filters.types[crs.type]) {
             return false;
@@ -156,18 +158,18 @@ function run_filter() {
             return false;
         } else if (filters.ignoreWorld && crs.area_of_use[0] == -180 && crs.area_of_use[2] == 180) {
             return false;
-        } else if (!intersects_with_map_box(filters.map_box, crs.area_of_use)) {
+        } else if (!intersectsWithMapBox(filters.map_box, crs.area_of_use)) {
             return false;
-        } else if (!valid_search_str(crs, filters.str)) {
+        } else if (!validSearchStr(crs, filters.str)) {
             return false;
         }
         return true;
     })
-    let count = fill_tab(data);
+    let count = fillTab(data);
     document.querySelector('.counter-text').innerText = count;
 }
 
-function slow_task(cb) {
+function slowTask(cb) {
     document.querySelector('.loader-text').classList.remove('hidden');
     document.querySelector('.counter-text').classList.add('hidden');
     setTimeout(function() {
@@ -178,7 +180,7 @@ function slow_task(cb) {
 }
 
 
-function make_tab() {
+function makeTab() {
     let tab = div(['tab'])
     let header = div(['tab-line', 'tab-header'], tab);
     div(['tab-cell', 'tab-code'], header, 'Code');
@@ -189,7 +191,7 @@ function make_tab() {
     return tab;
 }
 
-function fill_tab(data) {
+function fillTab(data) {
     let tab = document.querySelector('.tab');
     let tab_lines = document.querySelector('.tab-lines');
     if (tab_lines) {
@@ -211,33 +213,42 @@ function fill_tab(data) {
     return data.length;
 }
 
-function prepare_callbacks() {
+function prepareCallbacks() {
     Array.from(document.querySelectorAll(
         '.crstype, .crsauth, #ignoreWorld, #allowDeprecated')).forEach(t =>
         t.addEventListener('change', function (ev) {
-            slow_task(run_filter);
+            runFilter();
     }));
+
+    let form = document.querySelector("form");
+    form.addEventListener("submit", function(event) {
+        event.preventDefault();
+        let str = form.elements.value.value;
+        setSearchText(str)
+        runFilter();
+    });
 }
 
-function set_latlng(map, latlng, latlng2 = null) {
-    function update_text(latlng1, latlng2) {
+function setLatlng(map, latlng, latlng2 = null) {
+    function updateText(latlng1, latlng2) {
         let location = 'Clicked location: ' + latlng1;
         if (latlng2) location = 'Selected box: ' + latlng1 + ', ' + latlng2;
         document.querySelector('#location').innerHTML = location;
     }
-    function add_event(marker, other_marker, bounding_box) {
+    function addEvent(marker, other_marker, bounding_box) {
         marker.on('drag', function(ev) {
             bounding_box.setBounds(L.latLngBounds(other_marker.getLatLng(), ev.latlng))
-            update_text(other_marker.getLatLng(), marker.getLatLng());
+            updateText(other_marker.getLatLng(), marker.getLatLng());
         });
         marker.on('dragend', function(ev) {
-            update_text(other_marker.getLatLng(), marker.getLatLng());
-            slow_task(run_filter);
+            updateText(other_marker.getLatLng(), marker.getLatLng());
+            runFilter();
         })
     }
 
     let markers = []
     let bounding_boxes = []
+
     map.eachLayer(function (layer) {
         if (layer instanceof L.Marker){
             markers.push(layer);
@@ -247,31 +258,38 @@ function set_latlng(map, latlng, latlng2 = null) {
     });
     if (markers.length == 0) {
         const divCircle = L.divIcon({ className: 'circle'})
-        markers.push(L.marker(latlng, {icon: divCircle, draggable: true}).addTo(map));
-        markers[0].once('dragstart', function(ev) {
-            const ll = ev.target.getLatLng();
+        function addSecondLatlng(ll) {
             markers.push(L.marker(ll, {icon: divCircle, draggable: true}).addTo(map));
-            bounding_boxes.push(L.rectangle(L.latLngBounds(ll, ll)).addTo(map));
-            add_event(markers[0], markers[1], bounding_boxes[0]);
-            add_event(markers[1], markers[0], bounding_boxes[0]);
-        });
+            bounding_boxes.push(L.rectangle(L.latLngBounds(latlng, ll)).addTo(map));
+            addEvent(markers[0], markers[1], bounding_boxes[0]);
+            addEvent(markers[1], markers[0], bounding_boxes[0]);
+        }
+        markers.push(L.marker(latlng, {icon: divCircle, draggable: true}).addTo(map));
+        if (latlng2) {
+            // only on init from params
+            addSecondLatlng(latlng2);
+        } else {
+            markers[0].once('dragstart', function(ev) {
+                addSecondLatlng(ev.target.getLatLng());
+            });
+        }
     } else if (markers.length == 1) {
         markers[0].setLatLng(latlng);
     } else if (markers.length >= 2) {
         markers.forEach(e => e.removeFrom(map));
         bounding_boxes.forEach(e => e.removeFrom(map));
-        return set_latlng(map, latlng);
+        return setLatlng(map, latlng);
     }
-    update_text(latlng);
-    slow_task(run_filter);
+    updateText(latlng, latlng2);
+    runFilter();
 }
 
-function make_map() {
+function makeMap(mapName) {
     let map = L.map('mapid').setView([0, 0], 1);
     let osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 18,
-    }).addTo(map);
+    });
     let osmde = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 18,
@@ -285,6 +303,17 @@ function make_map() {
         "OSM (de)": osmde,
         "Carto (en)": carto
     };
+    _mapName = mapName;
+    switch(mapName) {
+        case 'osmde':
+            osmde.addTo(map);
+            break;
+        case 'carto':
+            carto.addTo(map);
+            break;
+        default:
+            osm.addTo(map);
+    }
     L.control.layers(baseMaps).addTo(map);
 
     document.querySelector('#stickyCb').addEventListener('click', function (ev) {
@@ -292,7 +321,23 @@ function make_map() {
     });
 
     map.on('click', function(e) {
-        set_latlng(map, e.latlng)
+        setLatlng(map, e.latlng)
+    });
+
+    map.on('baselayerchange', ev => {
+        _mapName = '';
+        switch(L.stamp(ev.layer)) {
+            case L.stamp(osm):
+                _mapName = 'osm';
+                break;
+            case L.stamp(osmde):
+                _mapName = 'osmde';
+                break;
+            case L.stamp(carto):
+                _mapName = 'carto';
+                break;
+        }
+        updateURL()
     });
 
     document.querySelector('#delete').addEventListener('click', function () {
@@ -306,7 +351,7 @@ function make_map() {
 
         if (doit) {
             document.querySelector('#location').innerHTML = '';
-            slow_task(run_filter);
+            runFilter();
         }
     });
 
@@ -317,43 +362,160 @@ function toggleInfo() {
     document.querySelector("#search_info").classList.toggle('hidden');
 }
 
-function prepare_doc() {
-    _map = make_map();
-    prepare_callbacks();
+function emptyParams() {
+    let dic = {
+        latlng : '',
+        searchText : '',
+        ignoreWorld : 'false',
+        allowDeprecated : 'false',
+        authorities : '',
+        activeTypes: '',
+    };
+    return dic;
+}
 
-    function setSearchText(str) {
-        form.elements.value.value = str;
-        str = str.trim();
-        ///// filters.searchText = str;
+function mapBoxToLatlngStr(map_box) {
+    let res = '';
+    if (!map_box)
+        return res;
+    res = map_box.n.toFixed(6) + ',' + map_box.e.toFixed(6);
+    if (map_box.n !== map_box.s || map_box.w !== map_box.e) {
+        res += ',' + map_box.s.toFixed(6) + ',' + map_box.w.toFixed(6);
+    }
+    return res;
+}
 
-        document.querySelector('#activeSearchTxt').innerText = str;
-        if (str) {
-            document.querySelector('#activeSearch').classList.remove('hidden');
+function paramsFromDocument() {
+    function toStrWithCommas(obj) {
+        return Object.entries(obj).filter(([k,v]) => v).map(([k,v]) => k).join(',');
+    }
+    const filter = prepareFilterFromDoc()
+    let params = emptyParams();
+    params.latlng = mapBoxToLatlngStr(filter.map_box);
+    params.searchText = filter.str;
+    params.ignoreWorld = filter.ignoreWorld.toString();
+    params.allowDeprecated = filter.allowDeprecated.toString();
+    params.authorities = toStrWithCommas(filter.authorities);
+    params.activeTypes = toStrWithCommas(filter.types);
+    return params;
+}
 
+function updateFiltersFromParams(input) {
+
+    function getAttribute(selector, attr) {
+        return Array.from(document.querySelectorAll(selector)).map(e => e.getAttribute(attr))
+    }
+
+    let dic = emptyParams();
+    dic.authorities = 'EPSG'; // default enabled
+
+    if (input.all == 'true') {
+        dic.ignoreWorld = 'false';
+        dic.allowDeprecated = 'true';
+        dic.authorities = getAttribute('.crstype', 'id').join(',');
+        dic.activeTypes = getAttribute('.crsauth', 'id').join(',');
+    }
+
+    Object.assign(dic, input);
+
+    function setCheck(id, checked) {
+        let obj = document.getElementById(id);
+        if (!obj) return;
+        if (checked) {
+            obj.setAttribute('checked', '');
         } else {
-            document.querySelector('#activeSearch').classList.add('hidden');
+            obj.removeAttribute('checked');
         }
     }
 
-    let form = document.querySelector("form");
-    form.addEventListener("submit", function(event) {
-        event.preventDefault();
-        let str = form.elements.value.value;
-        setSearchText(str)
-        slow_task(run_filter);
+    try {
+        const latlng = dic.latlng.split(',');
+        if (latlng.length == 4) setLatlng(_map, L.latLng(latlng.slice(0,2)), L.latLng(latlng.slice(2,4)));
+        else if (latlng.length >= 2) setLatlng(_map, L.latLng(latlng.slice(0,2)));
+    } catch (ignore) {}
+
+    setSearchText(decodeURIComponent(dic.searchText))
+
+    dic.authorities.split(',').forEach(auth => {
+        setCheck(auth, true);
     });
+
+    dic.activeTypes.split(',').forEach(type => {
+        setCheck(type, true);
+    });
+
+    setCheck('ignoreWorld', dic.ignoreWorld == 'true');
+    setCheck('allowDeprecated', dic.allowDeprecated == 'true');
+}
+
+function querystringFromFilters(mapName) {
+    let params = paramsFromDocument();
+    params.searchText = encodeURIComponent(params.searchText);
+    if (mapName) params.map = mapName;
+    if (!params.latlng) delete params.latlng;
+    if (!params.searchText) delete params.searchText;
+    let res = Object.keys(params).map(key => key +'='+ params[key]).join('&');
+    return res;
+}
+
+let _runCounter = 0;
+function updateURL() {
+    let url = new URL(location);
+    url.search = querystringFromFilters(_mapName);
+    if (_runCounter == 0) {
+    } else if (_runCounter == 1) {
+        window.history.pushState(null, '', url.toString());
+    } else {
+        window.history.replaceState(null, '', url.toString());
+    }
+    _runCounter++;
+}
+
+function runFilter() {
+    updateURL();
+    slowTask(runFilterCb);
+}
+
+function setSearchText(str) {
+    let form = document.querySelector("form");
+    form.elements.value.value = str;
+    str = str.trim();
+
+    document.querySelector('#activeSearchTxt').innerText = str;
+    if (str) {
+        document.querySelector('#activeSearch').classList.remove('hidden');
+
+    } else {
+        document.querySelector('#activeSearch').classList.add('hidden');
+    }
+}
+
+function prepareDoc() {
+    const params = paramsToDic(window.location);
+    _map = makeMap(params.map);
+    updateFiltersFromParams(params)
+    prepareCallbacks();
+}
+
+function paramsToDic(location) {
+    const url = new URL(location);
+    let dic = {};
+    for (let k of url.searchParams.keys()) {
+        dic[k] = url.searchParams.get(k);
+    }
+    return dic;
 }
 
 function init_explorer(home_dir) {
-    prepare_doc();
+    prepareDoc();
     fetch(home_dir + '/crslist.json', {
         method: "GET",
     })
     .then(response => response.json())
     .then(d => {
         _data = d;
-        const tab = make_tab();
+        const tab = makeTab();
         document.getElementById('tab-container').appendChild(tab);
-        slow_task(run_filter);
+        runFilter();
     })
 }

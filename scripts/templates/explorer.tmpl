@@ -28,21 +28,23 @@
             Click the map to select a location. Drag the point for an area. <button type="button" id="delete">Delete location</button> <span id="location"></span>
         </div>
         <div id="filters">
-            <label><input type="checkbox" class="crstype" id="PROJECTED_CRS">Projected</label>
-            <label><input type="checkbox" class="crstype" id="GEOGRAPHIC_2D_CRS">Geographic 2D</label>
-            <label><input type="checkbox" class="crstype" id="GEOGRAPHIC_3D_CRS">Geographic 3D</label>
-            <label><input type="checkbox" class="crstype" id="GEOCENTRIC_CRS">Geocentric</label>
-            <label><input type="checkbox" class="crstype" id="GEODETIC_CRS">Geodetic</label>
-            <label><input type="checkbox" class="crstype" id="VERTICAL_CRS">Vertical</label>
-            <label><input type="checkbox" class="crstype" id="COMPOUND_CRS">Compound</label>
-            <label><input type="checkbox" class="crstype" id="CRS">Other</label>  |
+            <span id="activeTypes">
+                <label><input type="checkbox" class="crstype" id="PROJECTED_CRS">Projected</label>
+                <label><input type="checkbox" class="crstype" id="GEOGRAPHIC_2D_CRS">Geographic 2D</label>
+                <label><input type="checkbox" class="crstype" id="GEOGRAPHIC_3D_CRS">Geographic 3D</label>
+                <label><input type="checkbox" class="crstype" id="GEOCENTRIC_CRS">Geocentric</label>
+                <label><input type="checkbox" class="crstype" id="GEODETIC_CRS">Geodetic</label>
+                <label><input type="checkbox" class="crstype" id="VERTICAL_CRS">Vertical</label>
+                <label><input type="checkbox" class="crstype" id="COMPOUND_CRS">Compound</label>
+                <label><input type="checkbox" class="crstype" id="CRS">Other</label>
+            </span>  |
             <label title="Do not show CRS with area of use longitude from -180 to 180">
                 <input type="checkbox" id="ignoreWorld">Ignore World</label>
             <label title="Display also deprecated systems">
                 <input type="checkbox" id="allowDeprecated">Allow deprecated</label>
         </div>
         <div id="authorities">
-            <label><input type="checkbox" class="crsauth" id="EPSG" checked="">EPSG</label>
+            <label><input type="checkbox" class="crsauth" id="EPSG">EPSG</label>
             <label><input type="checkbox" class="crsauth" id="ESRI">ESRI</label>
             <label><input type="checkbox" class="crsauth" id="IAU_2015">IAU_2015</label>
             <label><input type="checkbox" class="crsauth" id="IGNF">IGNF</label>
