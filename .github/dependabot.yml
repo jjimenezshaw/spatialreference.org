@@ -13,6 +13,7 @@ updates:
   # Configuration for pyproj
   - package-ecosystem: "pip"
     directory: "/scripts/"
+    target-branch: "dependabo-pyproj"
     schedule:
       interval: "weekly"
 
