@@ -10,7 +10,8 @@ test "$(ls -A $DIRNAME/dist/)" && rm -r $DIRNAME/dist/*
 PROJ_VERSION=`cat $DIRNAME/Dockerfile | sed -n 's/^FROM .*:\(.*\)$/\1/p'`
 echo "PROJ_VERSION=$PROJ_VERSION"
 
-PYPROJ_VERSION=3.7.1
+PYPROJ_VERSION=`cat $DIRNAME/requirements.txt | sed -n 's/^pyproj==\(.*\)$/\1/p'`
+echo "PYPROJ_VERSION=$PYPROJ_VERSION"
 
 DOCKER_TAG="crs-explorer:$PROJ_VERSION"
 STOP_COUNTER="${1:-0}"
