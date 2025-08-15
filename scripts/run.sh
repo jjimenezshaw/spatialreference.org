@@ -11,7 +11,7 @@ PROJ_VERSION=`cat $DIRNAME/Dockerfile | sed -n 's/^FROM .*:\(.*\)$/\1/p'`
 echo "PROJ_VERSION=$PROJ_VERSION"
 
 # extract PYPROJ version from requirements.txt
-PYPROJ_VERSION=`cat $DIRNAME/requirements.txt | sed -n 's/^pyproj==\(.*\)$/\1/p'`
+PYPROJ_VERSION=`cat $DIRNAME/3.11-requirements.txt | sed -n 's/^pyproj==\(.*\)$/\1/p'`
 echo "PYPROJ_VERSION=$PYPROJ_VERSION"
 
 DOCKER_TAG="crs-explorer:$PROJ_VERSION"
